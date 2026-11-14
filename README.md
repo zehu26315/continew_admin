@@ -33,6 +33,7 @@ powershell -ExecutionPolicy Bypass -File .\Start-Team.ps1 -Native -Graph
 | pnpm | 12.18.0 | 与 `continew-admin-ui/package.json` 的 `packageManager` 一致 |
 | MySQL | 8.0 及以上 | 表由 Liquibase 首次启动时创建（15 个 changeset） |
 | Redis | 7 及以上，必须带密码 | 应用读 `REDIS_PWD` |
+| Ollama | 0.40+（仅问答/图谱模型路径需要） | 先 `ollama serve`，再拉 `qwen2.5:3b`、`qwen3-embedding:0.6b`（约 2.5 GB） |
 | Python | 3.12（uv 管理） | 图谱/问答用 3.12；人脸要求 3.11/3.12；脚本自动定位，可用 `-Python` 覆盖 |
 
 ### 启动方式二选一

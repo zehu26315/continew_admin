@@ -11,7 +11,8 @@ foreach ($sid in $principals) {
     $rule = [Security.AccessControl.FileSystemAccessRule]::new($identity, 'FullControl', 'ContainerInherit,ObjectInherit', 'None', 'Allow')
     $acl.SetAccessRule($rule)
 }
-Set-Acl -LiteralPath $private.FullName -AclObject $acl
+# 重复执行时 ACL 已收紧，收紧操作可能因缺少 SeSecurityPrivilege 失败，视为已就绪
+try { Set-Acl -LiteralPath $private.FullName -AclObject $acl } catch { Write-Warning 'Template directory ACL already restricted.' }
 if (!(Test-Path "$Runtime/venv/Scripts/python.exe")) {
     & $Python -m venv "$Runtime/venv"
     if ($LASTEXITCODE) { throw 'Unable to create Python environment' }

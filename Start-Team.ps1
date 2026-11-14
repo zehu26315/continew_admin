@@ -27,6 +27,21 @@ function Fail($message) {
     exit 1
 }
 
+function Install-PythonDeps($python, $requirementFile, $importCheck, $label) {
+    & $python -c $importCheck 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "$label 依赖已就绪，跳过安装"
+        return
+    }
+    if (Get-Command uv -ErrorAction SilentlyContinue) {
+        & uv pip install --python $python -r $requirementFile
+    }
+    if ($LASTEXITCODE) {
+        & $python -m pip install -r $requirementFile
+    }
+    if ($LASTEXITCODE) { Fail "$label 依赖安装失败，请检查网络后重试。" }
+}
+
 function Test-Jdk17($javaHome) {
     if (!$javaHome -or !(Test-Path (Join-Path $javaHome 'bin/java.exe'))) { return $false }
     $release = Join-Path $javaHome 'release'
@@ -148,8 +163,7 @@ if ($Rag) {
         & $Python -m venv (Join-Path $rt 'rag/venv')
         if ($LASTEXITCODE) { Fail '问答环境创建失败，需要 Python 3.11/3.12。' }
     }
-    & $env:TRAINING_RAG_PYTHON -m pip install -r (Join-Path $api 'training-rag/requirements.txt')
-    if ($LASTEXITCODE) { Fail '问答依赖安装失败。' }
+    Install-PythonDeps $env:TRAINING_RAG_PYTHON (Join-Path $api 'training-rag/requirements.txt') 'import sqlite_vec, pypdf, defusedxml' '问答'
     foreach ($model in 'qwen3-embedding:0.6b', 'qwen2.5:3b') {
         & ollama pull $model
         if ($LASTEXITCODE) { Fail "模型 $model 拉取失败。" }
@@ -163,8 +177,7 @@ if ($Graph) {
         & $Python -m venv (Join-Path $rt 'graph/venv')
         if ($LASTEXITCODE) { Fail '图谱环境创建失败，需要 Python 3.11 及以上。' }
     }
-    & $env:TRAINING_GRAPH_PYTHON -m pip install -r (Join-Path $api 'training-graph/requirements.txt')
-    if ($LASTEXITCODE) { Fail '图谱依赖安装失败。' }
+    Install-PythonDeps $env:TRAINING_GRAPH_PYTHON (Join-Path $api 'training-graph/requirements.txt') 'import pypdf, defusedxml' '图谱'
 }
 
 # 6. 构建：必须是胖包，否则脚本拿不到可执行的 jar
