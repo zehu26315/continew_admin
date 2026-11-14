@@ -2,6 +2,9 @@
 
 三人小组的 Windows 开发仓库。后端在 `continew-admin`，前端在 `continew-admin-ui`。当前可演示指定账号和免输账号刷脸登录，以及私人资料上传、检索、问答和来源引用。
 
+> 本机已改用 JDK 17 + 全局 Node（pnpm 12）+ 本机 MySQL/Redis 的启动方式，一条命令即可拉起：
+> `powershell -ExecutionPolicy Bypass -File .\Start-Team.ps1 -Native`。环境准备、参数、常见错误见[启动说明](启动说明.md)。
+
 ## 第一次启动
 
 1. 安装 Git、JDK 21（设置 JAVA_HOME）、Node.js 20 和 pnpm 9.3.0（可运行 `npm install -g pnpm@9.3.0`）。数据库可以使用 Docker Desktop 的 Linux 容器，也可以使用 Windows 已有的 MySQL 和 Redis。
@@ -40,6 +43,7 @@ powershell -ExecutionPolicy Bypass -File .\Start-Team.ps1 -Native
 
 - **人脸识别**：安装 64 位 Python 3.11 或 3.12，确认 `py --version`，启动命令追加 `-Face`。脚本创建虚拟环境，下载并校验检测和识别模型。浏览器使用 localhost，并允许摄像头。
 - **私人资料问答**：安装 Python 和 Ollama，先启动 Ollama，再给启动命令追加 `-Rag`。脚本安装解析依赖并下载嵌入模型和问答模型。准备完毕后可用仓库中的 TXT、PDF、DOCX 验证。[问答演示步骤](任务2演示资料/资料问答使用说明.md)
+- **资料图谱问答**：给启动命令追加 `-Graph`，脚本创建独立 Python 环境并开启图谱抽取队列，不需要 Ollama；装了 Ollama 会自动改为模型抽取。工作台里可切换向量检索与图谱检索，并打开力导向图查看节点与关系。见[任务三实现说明](任务3图谱问答实现说明.md)。
 - 两个参数可以同时使用；原生数据库模式保留 `-Native`。已下载的模型下次启动无需重新安装。Dify 工作流模板随附在演示目录中，运行主项目无需安装 Dify。
 
 ## 三人协作

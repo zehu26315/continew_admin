@@ -7,15 +7,65 @@ export interface TrainingDocument {
   fileSize: number
   indexState: 'ready' | 'pending' | 'failed'
   indexError?: string
+  graphState: 'ready' | 'pending' | 'failed'
+  graphError?: string
   updatedAt: string
 }
 
 const base = '/training/documents'
 
+export interface DocumentSource {
+  documentId: string
+  version: number
+  fileName: string
+  chunk: number
+  page?: number
+  text: string
+}
+
 export interface DocumentAnswer {
   workflow?: { route: 'answered' | 'unverified' | 'no_match', documents: number, candidates: number, citations: number }
   answer: string
-  sources: { documentId: string, version: number, fileName: string, chunk: number, page?: number, text: string }[]
+  sources: DocumentSource[]
+}
+
+export interface GraphNode {
+  id: string
+  name: string
+  kind: string
+}
+
+export interface GraphEdge {
+  id: number
+  source: string
+  target: string
+  predicate: string
+  chunk?: number
+  page?: number
+  evidence: string
+  documentId?: string
+  version?: number
+  fileName?: string
+}
+
+export interface GraphPath {
+  from: string
+  to: string
+  predicate: string
+}
+
+export interface GraphAnswer {
+  answer: string
+  sources: DocumentSource[]
+  nodes: GraphNode[]
+  edges: GraphEdge[]
+  path: GraphPath[]
+  workflow?: { route: 'answered' | 'unverified' | 'no_match', documents: number, nodes: number, edges: number }
+}
+
+export interface DocumentGraph {
+  nodes: GraphNode[]
+  edges: GraphEdge[]
 }
 
 export const askDocument = (doc: TrainingDocument, question: string) =>
@@ -23,6 +73,12 @@ export const askDocument = (doc: TrainingDocument, question: string) =>
 
 export const askLibrary = (question: string) =>
   http.post<DocumentAnswer>(`${base}/ask`, { question }, { timeout: 225000 })
+
+export const askGraph = (question: string) =>
+  http.post<GraphAnswer>('/training/graph/ask', { question }, { timeout: 240000 })
+
+export const fetchDocumentGraph = (doc: TrainingDocument) =>
+  http.get<DocumentGraph>(`/training/graph/${doc.documentId}`, { version: doc.version }, { timeout: 60000 })
 
 export const retryIndex = (doc: TrainingDocument) =>
   http.post(`${base}/${doc.documentId}/index`, undefined, { params: { version: doc.version } })

@@ -35,14 +35,24 @@
             </a-space>
           </template>
         </a-table-column>
+        <a-table-column title="图谱" :width="92">
+          <template #cell="{ record }">
+            <a-tooltip :content="record.graphError || statusText[record.graphState as TrainingDocument['graphState']]">
+              <a-tag :color="record.graphState === 'failed' ? 'red' : record.graphState === 'ready' ? 'green' : 'blue'">
+                {{ statusText[record.graphState as TrainingDocument['graphState']] }}
+              </a-tag>
+            </a-tooltip>
+          </template>
+        </a-table-column>
         <a-table-column title="更新时间" :width="148">
           <template #cell="{ record }">{{ dayjs(record.updatedAt).format('YYYY-MM-DD HH:mm') }}</template>
         </a-table-column>
-        <a-table-column title="操作" :width="230">
+        <a-table-column title="操作" :width="280">
           <template #cell="{ record }">
             <a-space size="mini">
               <a-link :disabled="busy" @click="preview(record)">预览</a-link>
               <a-link :disabled="busy || record.indexState !== 'ready'" @click="questionDoc = record">问答</a-link>
+              <a-link :disabled="busy || record.graphState !== 'ready'" @click="openGraph(record)">图谱</a-link>
               <a-link :disabled="busy" @click="useDownload(() => downloadDocument(record), record.fileName)">下载</a-link>
               <a-link :disabled="busy" @click="chooseFile(record)">替换</a-link>
               <a-popconfirm :content="`删除《${record.fileName}》？`" @ok="remove(record)">
@@ -59,6 +69,11 @@
     <component :is="officePreviewComponent" v-if="officePreviewComponent" ref="officePreview" />
     <DocumentQuestion v-if="libraryOpen" @close="libraryOpen = false" />
     <DocumentQuestion v-if="questionDoc" :doc="questionDoc" @close="questionDoc = undefined" />
+    <a-modal v-model:visible="graphOpen" :title="graphTitle" :width="720" :footer="false" @cancel="closeGraph">
+      <GraphCanvas :nodes="graphNodes" :edges="graphEdges" height="380px" @pick="graphPicked = $event" />
+      <p v-if="graphPicked" class="hint">点选关系：{{ graphPicked.predicate }} · 依据：{{ graphPicked.evidence }}</p>
+      <p v-else class="hint">点击图中的边可以查看支持该关系的原文片段。</p>
+    </a-modal>
     <a-modal v-model:visible="showText" :title="textTitle" :footer="false" @close="text = ''">
       <pre class="text-preview">{{ text }}</pre>
     </a-modal>
@@ -69,14 +84,20 @@
 import dayjs from 'dayjs'
 import { Message } from '@arco-design/web-vue'
 import DocumentQuestion from './DocumentQuestion.vue'
+import GraphCanvas from './GraphCanvas.vue'
 import type FilePreview from '@/components/FilePreview/index.vue'
 import { useDownload } from '@/hooks'
-import { type TrainingDocument, deleteDocument, downloadDocument, listDocuments, retryIndex, saveDocument } from '@/apis/training/documents'
+import { type GraphEdge, type GraphNode, type TrainingDocument, deleteDocument, downloadDocument, fetchDocumentGraph, listDocuments, retryIndex, saveDocument } from '@/apis/training/documents'
 
 const documents = ref<TrainingDocument[]>([])
 const libraryOpen = ref(false)
 const statusText = { ready: '可问答', pending: '建立中', failed: '失败' }
 const questionDoc = ref<TrainingDocument>()
+const graphOpen = ref(false)
+const graphTitle = ref('')
+const graphNodes = ref<GraphNode[]>([])
+const graphEdges = ref<GraphEdge[]>([])
+const graphPicked = ref<GraphEdge>()
 const sampleUrl = `${import.meta.env.BASE_URL}training/lab-guide.txt`
 const picker = ref<HTMLInputElement>()
 const replacement = ref<TrainingDocument>()
@@ -100,7 +121,7 @@ async function refresh(silent = false) {
     const rows = (await listDocuments()).data
     if (disposed || sequence !== requestNumber) return
     documents.value = rows
-    if (rows.some((doc) => doc.indexState === 'pending')) poll = setTimeout(() => refresh(true), 2500)
+    if (rows.some((doc) => doc.indexState === 'pending' || doc.graphState === 'pending')) poll = setTimeout(() => refresh(true), 2500)
     loadFailed.value = false
   } catch {
     if (disposed || sequence !== requestNumber) return
@@ -166,6 +187,28 @@ async function preview(doc: TrainingDocument) {
   } finally {
     busy.value = false
   }
+}
+
+async function openGraph(doc: TrainingDocument) {
+  graphTitle.value = `《${doc.fileName}》 · v${doc.version} 图谱`
+  graphNodes.value = []
+  graphEdges.value = []
+  graphPicked.value = undefined
+  graphOpen.value = true
+  try {
+    const data = (await fetchDocumentGraph(doc)).data
+    graphNodes.value = data.nodes
+    graphEdges.value = data.edges
+  } catch {
+    Message.warning('图谱暂不可用，请稍后重试')
+  }
+}
+
+function closeGraph() {
+  graphOpen.value = false
+  graphNodes.value = []
+  graphEdges.value = []
+  graphPicked.value = undefined
 }
 
 onMounted(() => refresh())
