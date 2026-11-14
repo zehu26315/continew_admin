@@ -4,8 +4,8 @@
     [switch]$Face,
     [switch]$Rag,
     [switch]$Graph,
-    [string]$FacePython = 'py',
-    [string]$Python = 'python'
+    [string]$FacePython = '',
+    [string]$Python = ''
 )
 
 # 工程实训启动脚本：锁定 JDK 17 与全局 Node，缺省连本机 MySQL/Redis，构建胖包后拉起前后端。
@@ -112,6 +112,20 @@ if ($Native) {
     docker compose -p continew-training --env-file $config up -d --wait
     if ($LASTEXITCODE) { Fail 'MySQL 与 Redis 容器启动失败。' }
 }
+
+# 4.5 Python：默认优先 uv 管理的 3.12，其次 PATH 中的 python
+if (!$Python) {
+    if (Get-Command uv -ErrorAction SilentlyContinue) {
+        $uvPython = (& uv python find 3.12 2>$null)
+        if ($uvPython) { $Python = ($uvPython | Select-Object -First 1).ToString().Trim() }
+    }
+    if (!$Python) { $Python = 'python' }
+}
+if ($Face -and !$FacePython) { $FacePython = $Python }
+if (-not (Test-Path $Python) -and !(Get-Command $Python -ErrorAction SilentlyContinue)) {
+    Fail "找不到 Python 解释器：$Python。请安装 Python 3.12，或用 -Python <路径> 指定。"
+}
+Write-Host ("Python: " + $Python)
 
 # 5. 课程功能：人脸识别、私人资料问答、图谱问答（按需开启，未开启则不注册对应后台队列）
 $env:TRAINING_FACE_HOME = Join-Path $rt 'face'
